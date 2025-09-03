@@ -1,0 +1,55 @@
+{
+    "main_window": {
+        "title_re": "Space Guardian.*",
+        "class_name": "2.52_16P9c000000"
+        },
+    "main_panel": {
+        "title_re": "Space Guardian.*",
+        "control_type": "Pane"
+    },
+    "login_window": {
+        "title": "Acesso ao Sistema"
+    },
+    "user_field": {
+        "title": "TxtUsr_Login"
+    },
+    "password_field": {
+        "title": "TxtUsr_Senha"
+    },
+    "login_button": {
+        "title": "Confirma.*",
+        "class_name": "Button"
+    },
+    "dav_inclusion_window": {
+        "title": "Consulta de Pedidos - Documento Auxiliar de vendas"
+    },
+    "confirmation_dialog": {
+        "title": "Confirmação",
+        "class_name": "#32770"
+    },
+    "last_price_pratice":{
+        "title": "Último preço praticado",
+        "class_name": "#32770"
+    },
+    "adress_dialog":{
+        "title": "Endereços"
+    },
+    "vendedor_selection_dialog": {
+        "title": "Selecione o Vendedor"
+    },
+    "logistics_window": {
+        "title": "Cargas Do Sistema"
+    },
+    "load_assembly_window": {
+        "title": "Montagem de Carga",
+        "class_name": "TMontagemCargaForm"
+    },
+    "warning_dialog" : {
+        "title": "Advertência",
+        "class_name": "#32770"
+    },
+    "atention_dialog" : {
+        "title": "Atenção",
+        "class_name": "#32770"
+    }
+}
