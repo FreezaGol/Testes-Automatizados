@@ -51,5 +51,8 @@
     "atention_dialog" : {
         "title": "Atenção",
         "class_name": "#32770"
+    },
+    "autoriz_dialog_window" : {
+        "title": "Solicitação de Autorização para.*"   
     }
 }

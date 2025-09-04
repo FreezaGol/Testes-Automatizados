@@ -4,7 +4,7 @@ from pywinauto import Application
 # O seletor da sua janela principal que sabemos que funciona
 main_window_selector = {
     "title_re": "Space Guardian.*",
-    "class_name": "2.52_39c000000"
+    "class_name": "2.52_16P9c000000"
 }
 backend = "win32"
 

@@ -11,7 +11,7 @@ backend = "win32"
 # --- Seletores (copiados do seu config.json) ---
 main_window_selector = {
     "title_re": "Space Guardian.*",
-    "class_name": "2.52_39c000000"
+    "class_name": "2.52_16P9c000000"
 }
 # Use o seletor que você descobriu para a janela de inclusão de DAV
 dav_inclusion_selector = {

@@ -146,6 +146,21 @@ def run(db_handler, selectors, config):
         # =============================================================================
         logging.info("--- FASE 1: Coletando todas as informações necessárias ---")
 
+        # --- NOVA LÓGICA DE SELEÇÃO DE FILIAL ---
+        selected_filial_code = None
+        filial_count = db_handler.get_active_filiais_count()
+        if filial_count > 1:
+            logging.info("Múltiplas filiais ativas encontradas. Solicitando seleção do usuário.")
+            filiais_df = db_handler.get_active_filiais()
+            selected_filial_code = _select_from_grid(filiais_df, "Seleção de Filial", "nome_filial", "codigo_filial")
+            if not selected_filial_code: raise ValueError("Seleção de Filial foi cancelada.")
+            logging.info(f"Trabalhando com a filial: {selected_filial_code}")
+        elif filial_count == 1:
+             selected_filial_code = 1
+             logging.info(f"Encontrada uma única filial ativa: {selected_filial_code}. Selecionada automaticamente.")
+        else:
+            logging.info("Nenhuma filial ativa encontrada. O filtro de filial não será aplicado.")
+
         # 1. Selecionar natureza de operação
         naturezas_df = db_handler.get_naturezas_operacao()
         cod_natureza = _select_from_grid(naturezas_df, "Seleção de Natureza", "descricao", "codigo_natureza")
@@ -179,7 +194,7 @@ def run(db_handler, selectors, config):
         if not cod_condicao: raise ValueError("Seleção de Condição de Pagamento foi cancelada.")
         
         # 6. Selecionar produtos para lançamento
-        products_df = db_handler.get_available_products()
+        products_df = db_handler.get_available_products(selected_filial_code)
         if not products_df.empty:
             products_df.columns = products_df.columns.str.lower()
         
@@ -192,7 +207,7 @@ def run(db_handler, selectors, config):
         unit_counts_df = db_handler.get_product_unit_counts(selected_products)
         unit_counts_map = {}
         if not unit_counts_df.empty:
-            unit_counts_map = dict(zip(unit_counts_df.iloc[:, 0], unit_counts_df.iloc[:, 1]))
+            unit_counts_map = dict(zip(unit_counts_df.iloc[:, 0].astype(str).str.strip(), unit_counts_df.iloc[:, 1]))
 
         logging.info("--- FASE 1 CONCLUÍDA: Todos os dados foram coletados. ---")
         logging.info("A automação da interface começará em 3 segundos...")
@@ -325,13 +340,19 @@ def run(db_handler, selectors, config):
         logging.info(f"   -> Condição de pagamento '{cod_condicao}' inserida.")
 
         # 15. Finaliza etapa de lançamento de condições
-        logging.info("Passo 15: Pressionando ENTER 4x para lançar os itens.")
+        logging.info("Passo 15: Pressionando ENTER 5x para lançar os itens.")
         dav_window.type_keys('{ENTER 5}')
         logging.info("Processo de preenchimento inicial do DAV finalizado com sucesso!")
-
+        time.sleep(0.5)
         # 16. Verificar existencia da caixa de diálogo Aliquota de Comissão
         logging.info("Passo 16: Verificando a existencia da caixa de diálogo Aliquota de Comissão ")
-        Pa5_DigComisDav = db_handler.check_field_value('parametro5', 'Pa5_DigComisDav', None, None)
+
+        Pa5_DigComisDav = db_handler.check_field_value(
+            table='parametro5', 
+            field='pa5_digcomisDav', 
+            filial_code=selected_filial_code
+        )
+
         if Pa5_DigComisDav == 1 :
             _handle_optional_dialog(selectors['confirmation_dialog'],"%(s)")
         else :
@@ -346,50 +367,97 @@ def run(db_handler, selectors, config):
             
             dav_window.type_keys(product_code, with_spaces=True)
 
-            pa2_vultpreco = db_handler.check_field_value('parametro2', 'pa2_vultpreco', None, None)
+            pa2_vultpreco = db_handler.check_field_value(
+                table='parametro2', 
+                field='pa2_vultpreco', 
+                filial_code=selected_filial_code
+            )
+
             if pa2_vultpreco == 1:
-                dav_window.type_keys('{ENTER}')
+                #dav_window.type_keys('{ENTER}')
                 _handle_optional_dialog(selectors['last_price_pratice'],"{ENTER}")
 
             # Verifica quantas unidades o produto tem para definir quantos ENTERS são necessários
             # para selecionar a unidade
-            unit_count = unit_counts_map.get(product_code, 1)
+            unit_count = unit_counts_map.get(product_code)
             logging.info(f"Produto tem {unit_count} unidade(s) mapeada(s).")
             if unit_count > 1:
+                dav_window.set_focus()
+                time.sleep(0.2)
                 dav_window.type_keys('{ENTER 2}')
             else:
+                dav_window.set_focus()
+                time.sleep(0.2)
                 dav_window.type_keys('{ENTER}')
 
             # Verifica se há lançamento de lote ou local de estoque no item
             lanc_lotloc_ped = db_handler.check_field_value('natoper', 'Nat_LcLtPeds', 'Nat_Codigo', cod_natureza) 
             if lanc_lotloc_ped == 1 : 
+                dav_window.set_focus()
+                time.sleep(0.2)
                 dav_window.type_keys('{ENTER}')
 
             # Define e lança a quantidade de cada item
             available_stock = int(float(stock_map.get(product_code, 1)))
             if available_stock < 1:
                 available_stock = 1
-                logging.warning(f"     Estoque para o produto {product_code} é zero ou negativo. Usando quantidade 1.")
-
-            random_quantity = random.randint(1, available_stock)
+                logging.warning(f"Estoque para o produto {product_code} é zero ou negativo. Usando quantidade 1.")
+            
+            if available_stock >= 20 :    
+                random_quantity = random.randint(1, 20)
+            else :
+                random_quantity = random.randint(1, available_stock)
+                
             logging.info(f"Estoque disponível: {available_stock}. Quantidade sorteada: {random_quantity}")
             
+            dav_window.set_focus()
             dav_window.type_keys(str(random_quantity))
-
+            time.sleep(0.2)    
+                
             # Verifica se os campos de desconto e acréscimo estarão disponíveis 
-            pa2_infacreped = db_handler.check_field_value('parametro2', 'pa2_infacreped', None, None)
-            pa2_infdescped = db_handler.check_field_value('parametro2', 'pa2_infdescped', None, None)
+            pa2_infacreped = db_handler.check_field_value(
+                table='parametro2', 
+                field='pa2_infacreped', 
+                filial_code=selected_filial_code
+            )
+
+            pa2_infdescped = db_handler.check_field_value(
+                table='parametro2', 
+                field='pa2_infdescped', 
+                filial_code=selected_filial_code
+            )
+
             if pa2_infacreped == 1 and pa2_infdescped == 1 :
+                dav_window.set_focus()
+                time.sleep(0.5)
                 dav_window.type_keys("{ENTER 6}")
+
                 #Se exister o campo tipo de entrega que aparece quando o pa4_tipoentit = 1
-                pa4_tipoentit = db_handler.check_field_value('parametro4', 'pa4_tipoentit', None, None) 
+                pa4_tipoentit = db_handler.check_field_value(
+                    table='parametro4', 
+                    field='pa4_tipoentit', 
+                    filial_code=selected_filial_code
+                )  
+
                 if pa4_tipoentit == 1 :
+                   time.sleep(0.5) 
                    dav_window.type_keys("{F1}")
-                   input("Deixe o cursor em um tipo de entrega e pressione ENTER para continuar o fluxo")
-
-            logging.info("Pressionando ENTER 3x para gravar o item.")
-            dav_window.type_keys('{ENTER 3}')
-
+                   input("Deixe o cursor em um tipo de entrega e pressione ENTER e continuar o fluxo")
+                   dav_window.set_focus()
+                   logging.info("Pressionando ENTER 2x para gravar o item.")
+                   dav_window.type_keys('{ENTER 2}')
+                    # Atenção : Pedido possui item(s) para entrega, o tipo de entrega será alterado
+                   _handle_optional_dialog(selectors['atention_dialog'], "{ENTER}")  
+                else :
+                    logging.info("Pressionando ENTER 3x para gravar o item.")
+                    dav_window.set_focus()
+                    dav_window.type_keys('{ENTER 3}')
+                    
+            elif pa2_infacreped == 0 and pa2_infdescped == 0 : 
+                    logging.info("Pressionando ENTER 3x para gravar o item.")
+                    dav_window.set_focus()
+                    dav_window.type_keys('{ENTER 3}')
+                    
         logging.info("Todos os itens selecionados foram lançados com sucesso.")
         logging.info("### TESTE CONCLUÍDO: Criação de DAV ###")
 

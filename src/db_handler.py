@@ -141,34 +141,128 @@ class DBHandler:
         """
         return self.execute_query(query, (forma_pagamento_codigo,))
     
-    def get_available_products(self):
-        query = """
-        SELECT codigo_produto, nome_produto, EstoqueDisponivel
-        FROM (
-            SELECT
-                pf.pfi_procodigo AS codigo_produto, p.pro_desc AS nome_produto,
-                (COALESCE(SUM(lp.lpd_estfisico), 0) - pf.pfi_estpenentre) AS EstoqueDisponivel
-            FROM produto p
-            INNER JOIN produtofilial pf ON p.pro_codigo = pf.pfi_procodigo
-            INNER JOIN unidadepro up ON p.pro_codigo = up.unp_procodigo AND up.unp_padestoque = 1
-            LEFT JOIN localfilial lf ON pf.pfi_filcodigo = lf.lcf_filcodigo
-            LEFT JOIN localprod lp ON lf.lcf_lcecodigo = lp.lpd_lcecodigo AND pf.pfi_procodigo = lp.lpd_procodigo
-            WHERE p.pro_ativo = 1 AND (pf.pfi_inativo <> 1 OR pf.pfi_inativo IS NULL) AND p.pro_contlote = 0
-            GROUP BY pf.pfi_procodigo, p.pro_desc, pf.pfi_estpenentre
-            UNION ALL
-            SELECT
-                pf.pfi_procodigo AS codigo_produto, p.pro_desc AS nome_produto,
-                (COALESCE(SUM(pl.ple_estfisico), 0) - pf.pfi_estpenentre) AS EstoqueDisponivel
-            FROM produto p
-            INNER JOIN produtofilial pf ON p.pro_codigo = pf.pfi_procodigo
-            INNER JOIN unidadepro up ON p.pro_codigo = up.unp_procodigo AND up.unp_padestoque = 1
-            LEFT JOIN localfilial lf ON pf.pfi_filcodigo = lf.lcf_filcodigo
-            LEFT JOIN produtolote pl ON lf.lcf_lcecodigo = pl.ple_lcecodigo AND pf.pfi_procodigo = pl.ple_procodigo
-            WHERE p.pro_ativo = 1 AND (pf.pfi_inativo <> 1 OR pf.pfi_inativo IS NULL) AND p.pro_contlote = 1
-            GROUP BY pf.pfi_procodigo, p.pro_desc, pf.pfi_estpenentre
-        ) AS EstoqueCalculado
-        WHERE EstoqueDisponivel > 0
-        ORDER BY codigo_produto;
+    def get_available_products(self,filcodigo):
+        query = f"""
+SELECT pro_desc AS nome_produto,
+       pro_descdet,
+       pro_referencia,
+       pfi_procodigo AS codigo_produto,
+       pfi_filcodigo,
+       pfi_estpenconfi,
+       pfi_estpenentre,
+       pfi_estpenentra,
+       lcf_intext,
+       lcf_permiteven,
+       unp_descemb,
+       unp_fatestoque,
+       unp_unidade,
+       unp_quantidade,
+       pfi_estoque AS EstoqFiscal,
+       sum(lpd_estfisico) AS EstoqueDisponivel,
+       sum(lpd_estpenconfi) AS estpenconfiloc,
+       sum(lpd_estpenentre) AS estpenentreloc,
+       sum(lpd_estpenentra) AS estpenentraloc
+FROM produto,
+     unidadepro,
+     parametro,
+     produtofilial
+LEFT JOIN (localfilial
+           INNER JOIN localprod ON lcf_lcecodigo = lpd_lcecodigo
+           AND lcf_filcodigo = lpd_filcodigo) ON pfi_filcodigo = lcf_filcodigo
+AND pfi_procodigo = lpd_procodigo
+WHERE pro_codigo = pfi_procodigo
+  AND lpd_estfisico >= 1
+  AND pfi_estoque >= 1
+  AND pfi_filcodigo = par_filcodigo
+  AND pro_codigo = unp_procodigo
+  AND unp_padestoque = 1
+  AND pro_ativo = 1
+  AND pro_codigo = pfi_procodigo
+  AND (pfi_inativo <> 1
+       OR pfi_inativo IS NULL)
+  AND (pro_contlote = 0
+       OR Par_ContLote = 0)
+  AND pfi_filcodigo = {filcodigo}	
+  AND lcf_permiteven = 1
+  AND PFI_LIBVENDA = 1
+GROUP BY pfi_procodigo,
+         pfi_filcodigo,
+         lcf_intext,
+         lcf_permiteven,
+         pro_desc,
+         pro_descdet,
+         pro_referencia,
+         pfi_estpenconfi,
+         pfi_estpenentre,
+         pfi_estpenentra,
+         unp_descemb,
+         unp_fatestoque,
+         unp_unidade,
+         unp_quantidade,
+         pfi_estoque
+UNION
+SELECT pro_desc AS nome_produto,
+       pro_descdet,
+       pro_referencia,
+       pfi_procodigo AS codigo_produto,
+       pfi_filcodigo,
+       pfi_estpenconfi,
+       pfi_estpenentre,
+       pfi_estpenentra,
+       lcf_intext,
+       lcf_permiteven,
+       unp_descemb,
+       unp_fatestoque,
+       unp_unidade,
+       unp_quantidade,
+       pfi_estoque AS estoqfiscal,
+       sum(ple_estfisico) AS EstoqueDisponivel,
+       sum(ple_estpenconfi) AS estpenconfiloc,
+       sum(ple_estpenentre) AS estpenentreloc,
+       sum(pfi_estpenentra) AS estpenentraloc
+FROM produto,
+     unidadepro,
+     parametro,
+     produtofilial
+LEFT JOIN (localfilial
+           INNER JOIN produtolote ON lcf_lcecodigo = ple_lcecodigo
+           AND lcf_filcodigo = ple_filcodigo) ON pfi_filcodigo = lcf_filcodigo
+AND pfi_procodigo = ple_procodigo
+WHERE Pro_Codigo = 3
+  and ple_estfisico >= 1
+  and pfi_estoque >= 1
+  AND pro_codigo = pfi_procodigo
+  AND pfi_filcodigo = par_filcodigo
+  AND pro_codigo=unp_procodigo
+  AND unp_padestoque = 1
+  AND pro_contlote = 1
+  AND par_contlote = 1
+  AND pro_ativo = 1
+  AND pro_codigo = pfi_procodigo
+  AND (pfi_inativo <> 1
+       OR pfi_inativo IS NULL)
+  and pfi_filcodigo = {filcodigo}
+  AND lcf_permiteven = 1
+  AND PFI_LIBVENDA = 1
+GROUP BY pfi_procodigo,
+         pfi_filcodigo,
+         lcf_intext,
+         lcf_permiteven,
+         pro_desc,
+         pro_descdet,
+         pro_referencia,
+         pfi_estpenconfi,
+         pfi_estpenentre,
+         pfi_estpenentra,
+         unp_descemb,
+         unp_fatestoque,
+         unp_unidade,
+         unp_quantidade,
+         pfi_estoque
+ORDER BY codigo_produto,
+         pfi_filcodigo,
+         lcf_intext,
+         lcf_permiteven;   
         """
         return self.execute_query(query)
     
@@ -213,7 +307,59 @@ class DBHandler:
         """
         # Passa a data como um parâmetro para a query
         return self.execute_query(query, (today_date,))
+    
+    # --- NOVAS FUNÇÕES PARA FILIAL ---
+    def get_active_filiais_count(self):
+        """Retorna a contagem de filiais ativas."""
+        query = "SELECT COUNT(*) AS total_de_filiais_ativas FROM filial WHERE FIL_ATIVO = 1;"
+        df = self.execute_query(query)
+        if not df.empty:
+            return df.iloc[0]['total_de_filiais_ativas']
+        return 0
 
+    def get_active_filiais(self):
+        """Retorna uma lista de filiais ativas."""
+        query = "SELECT FIL_CODIGO as codigo_filial, FIL_RAZAO as nome_filial FROM filial WHERE FIL_ATIVO = 1 ORDER BY FIL_RAZAO;"
+        return self.execute_query(query)
+
+    # --- FUNÇÃO CHECK_FIELD_VALUE APRIMORADA ---
+    def check_field_value(self, table, field, condition_field=None, condition_value=None, filial_code=None):
+        """
+        Busca o valor de um campo específico em uma tabela.
+        Inclui lógica para filtrar por filial em tabelas de parâmetros.
+        """
+        params = []
+        where_clauses = []
+
+        # Adiciona condição principal, se houver
+        if condition_field is not None and condition_value is not None:
+            where_clauses.append(f"{condition_field} = %s")
+            params.append(condition_value)
+
+        # Adiciona o filtro de filial dinamicamente para tabelas de parâmetros
+        if filial_code is not None and table.startswith('parametro'):
+            table_num = table.replace('parametro', '')
+            if table_num.isdigit():
+                # Constrói o nome do campo de filial (ex: pa4_filcodigo)
+                filial_column = f'pa{table_num}_filcodigo'
+                where_clauses.append(f"{filial_column} = %s")
+                params.append(filial_code)
+
+        query = f"SELECT {field} FROM {table}"
+        if where_clauses:
+            query += " WHERE " + " AND ".join(where_clauses)
+        
+        # Para parâmetros, sempre pegamos o primeiro resultado se não houver filtro
+        if table.startswith('parametro') and not where_clauses:
+            query += " LIMIT 1"
+
+        df = self.execute_query(query, tuple(params) if params else None)
+        
+        if not df.empty:
+            return df.iloc[0][field]
+        # Retorna None se a query não encontrar nada, para evitar erros
+        return None
+    
     def close_pool(self):
         """Fecha todas as conexões no pool."""
         # Esta função é chamada implicitamente quando o programa termina, mas é uma boa prática.
