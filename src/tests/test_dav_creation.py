@@ -130,6 +130,71 @@ def _handle_optional_dialog(dialog_selector, keystroke, timeout=1):
         logging.info(f"Diálogo opcional '{dialog_selector.get('title')}' não apareceu. Prosseguindo...")
     except Exception as e:
         logging.warning(f"Não foi possível interagir com o diálogo opcional: {e}")
+        
+# =============================================================================
+# FUNÇÃO PARA VERIFICAR SE A TELA AUTORIZAÇÕES APARECEU
+# =============================================================================
+def _check_for_authorization_win32(main_window, selectors, timeout=2):
+    """
+    Verifica de forma robusta com 'win32' se a janela de autorização existe.
+    Usa o seletor simplificado (sem class_name) e um timeout razoável.
+    Retorna True se a janela for encontrada, False caso contrário.
+    """
+    try:
+        # IMPORTANTE: Usando o seletor que provou funcionar, sem class_name.
+        selector = {"title_re": selectors['authorization_dialog']['title_re']}
+        
+        auth_dialog = main_window.child_window(**selector)
+        auth_dialog.wait('visible', timeout=timeout)
+        logging.info("Pré-verificação (win32): Janela de autorização detectada.")
+        return True
+    except timings.TimeoutError:
+        logging.info("Pré-verificação (win32): Janela de autorização não apareceu no tempo esperado.")
+        return False
+    except Exception as e:
+        logging.warning(f"Pré-verificação (win32): Ocorreu um erro inesperado. {e}")
+        return False
+# =============================================================================
+# FUNÇÃO PARA TRATAR AUTORIZAÇÕES COM button.invoke
+# =============================================================================
+def _handle_authorization_dialog(selectors, timeout=0.3):
+    """
+    Verifica se a janela de autorização aparece e aciona os botões de autorização
+    e confirmação usando o backend 'uia' e o método '.invoke()'.
+    A conexão UIA é criada aqui dentro para garantir a detecção correta.
+    """
+    try:
+        # Conexão específica com backend UIA feita no momento do uso para máxima confiabilidade
+        logging.info("Conectando com backend 'uia' para tratar a janela de autorização...")
+        app_uia = Application(backend="uia").connect(**selectors['main_window'])
+        main_window_uia = app_uia.window(**selectors['main_window'])
+
+        # 1. Encontrar a janela de diálogo de autorização
+        auth_dialog = main_window_uia.child_window(**selectors['authorization_dialog'])
+        auth_dialog.wait('visible', timeout=timeout)
+        logging.info(f"Janela de autorização encontrada: '{auth_dialog.window_text()}'")
+        auth_dialog.set_focus()
+
+        # 2. Encontrar e acionar o primeiro botão: "<< Autorizar"
+        authorize_button = auth_dialog.child_window(**selectors['authorization_authorize_button'])
+        authorize_button.wait('ready', timeout=0.3)
+        logging.info("Botão '<< Autorizar' encontrado. Acionando com .invoke()...")
+        authorize_button.invoke()
+        logging.info("--> Ação 'invoke' no botão '<< Autorizar' enviada.")
+        #time.sleep(0.5)
+
+        # 3. Encontrar e acionar o segundo botão: "Confirma Autorização"
+        confirm_button = auth_dialog.child_window(**selectors['authorization_confirm_button'])
+        confirm_button.wait('ready', timeout=0.3)
+        logging.info("Botão 'Confirma Autorização' encontrado. Acionando com .invoke()...")
+        confirm_button.invoke()
+        logging.info("--> Ação 'invoke' no botão 'Confirma Autorização' enviada.")
+        #time.sleep(0.5)
+
+    except (ElementNotFoundError, timings.TimeoutError):
+        logging.info("Janela de autorização não apareceu. Prosseguindo...")
+    except Exception as e:
+        logging.warning(f"Não foi possível interagir com a janela de autorização: {e}", exc_info=True)
 
 # =============================================================================
 # FUNÇÃO PRINCIPAL DO TESTE 
@@ -216,6 +281,7 @@ def run(db_handler, selectors, config):
         # =============================================================================
         # FASE 2: AUTOMAÇÃO DA INTERFACE (USANDO SUA LÓGICA EXISTENTE)
         # =============================================================================
+        
         logging.info("--- FASE 2: Iniciando automação da interface do Guardian ---")
         
         desktop = Desktop(backend="win32")
@@ -266,12 +332,15 @@ def run(db_handler, selectors, config):
         logging.info(f"   -> Cliente '{selected_cliente_code}' inserido.")
         dav_window.type_keys('{ENTER}')
         #time.sleep(1)
-
+        
         # 8.1. Advertencia Inscrição Estadual do Contribuinte NÃO está Habilitada 
+        _handle_optional_dialog(selectors['atention_dialog'], "{ENTER}")   
+            
+        # 8.2. Advertencia Inscrição Estadual do Contribuinte NÃO está Habilitada 
         _handle_optional_dialog(selectors['warning_dialog'], "{ENTER}") 
 
-        # 8.2. Advertencia Inscrição Estadual do Contribuinte NÃO está Habilitada 
-        _handle_optional_dialog(selectors['atention_dialog'], "{ENTER}")  
+        # 8.3. Advertencia Inscrição Estadual do Contribuinte NÃO está Habilitada 
+        _handle_optional_dialog(selectors['notification_dialog'], "{ENTER}")  
 
 
         # 8.5 Verifica se o dialogo de endereços irá aparecer
@@ -292,7 +361,7 @@ def run(db_handler, selectors, config):
         logging.info(f"   -> Valor de Nat_cfgvendedor: {cfg_vendedor}")
         if cfg_vendedor == 1:
             logging.info("   -> CfgVendedor = 1. Pressionando ENTER para selecionar vendedor padrão e ENTER 2X para chegar ao lançamento da forma de pagamento.")
-            dav_window.type_keys('{ENTER 3}')
+            dav_window.type_keys('{ENTER 2}')
         elif cfg_vendedor == 2:
             logging.info("   -> CfgVendedor = 2. Pulando campo de vendedor com ENTER.")
             dav_window.type_keys('{ENTER}')
@@ -384,13 +453,15 @@ def run(db_handler, selectors, config):
             if unit_count > 1:
                 dav_window.set_focus()
                 time.sleep(0.2)
-                dav_window.type_keys('{ENTER 2}')
+                dav_window.type_keys('{ENTER}')
+                time.sleep(0.2)
+                dav_window.type_keys('{ENTER}')
             else:
                 dav_window.set_focus()
                 time.sleep(0.2)
                 dav_window.type_keys('{ENTER}')
 
-            # Verifica se há lançamento de lote ou local de estoque no item
+            # Verifica se há lançamento de lote ou local de estoque na natureza
             lanc_lotloc_ped = db_handler.check_field_value('natoper', 'Nat_LcLtPeds', 'Nat_Codigo', cod_natureza) 
             if lanc_lotloc_ped == 1 : 
                 dav_window.set_focus()
@@ -412,8 +483,8 @@ def run(db_handler, selectors, config):
             
             dav_window.set_focus()
             dav_window.type_keys(str(random_quantity))
-            time.sleep(0.2)    
-                
+            time.sleep(0.2)  
+  
             # Verifica se os campos de desconto e acréscimo estarão disponíveis 
             pa2_infacreped = db_handler.check_field_value(
                 table='parametro2', 
@@ -430,7 +501,15 @@ def run(db_handler, selectors, config):
             if pa2_infacreped == 1 and pa2_infdescped == 1 :
                 dav_window.set_focus()
                 time.sleep(0.5)
-                dav_window.type_keys("{ENTER 6}")
+                dav_window.type_keys("{ENTER}")
+                logging.info("Verificando se a janela de autorização apareceu...")
+                # 1. Faz a verificação rápida com 'win32'
+                if _check_for_authorization_win32(main_window, selectors):
+                    # 2. Só se a verificação rápida for positiva, chama a função 'uia' para interagir
+                    _handle_authorization_dialog(selectors) 
+                time.sleep(0.5)
+                dav_window.type_keys("{ENTER 5}")
+                
 
                 #Se exister o campo tipo de entrega que aparece quando o pa4_tipoentit = 1
                 pa4_tipoentit = db_handler.check_field_value(
