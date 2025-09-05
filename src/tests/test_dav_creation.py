@@ -331,15 +331,12 @@ def run(db_handler, selectors, config):
         dav_window.type_keys(selected_cliente_code)
         logging.info(f"   -> Cliente '{selected_cliente_code}' inserido.")
         dav_window.type_keys('{ENTER}')
-        #time.sleep(1)
-        
-        # 8.1. Advertencia Inscrição Estadual do Contribuinte NÃO está Habilitada 
-        _handle_optional_dialog(selectors['atention_dialog'], "{ENTER}")   
+        #time.sleep(1)  
             
-        # 8.2. Advertencia Inscrição Estadual do Contribuinte NÃO está Habilitada 
+        # 8.1. Advertencia Inscrição Estadual do Contribuinte NÃO está Habilitada 
         _handle_optional_dialog(selectors['warning_dialog'], "{ENTER}") 
 
-        # 8.3. Advertencia Inscrição Estadual do Contribuinte NÃO está Habilitada 
+        # 8.2. Advertencia Inscrição Estadual do Contribuinte NÃO está Habilitada 
         _handle_optional_dialog(selectors['notification_dialog'], "{ENTER}")  
 
 
