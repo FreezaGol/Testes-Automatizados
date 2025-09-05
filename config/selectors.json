@@ -1,7 +1,7 @@
 {
     "main_window": {
         "title_re": "Space Guardian.*",
-        "class_name": "2.52_16P9c000000"
+        "class_name": "2.52_17P9c000000"
         },
     "main_panel": {
         "title_re": "Space Guardian.*",

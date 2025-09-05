@@ -273,7 +273,18 @@ def run(db_handler, selectors, config):
         unit_counts_map = {}
         if not unit_counts_df.empty:
             unit_counts_map = dict(zip(unit_counts_df.iloc[:, 0].astype(str).str.strip(), unit_counts_df.iloc[:, 1]))
-
+            
+        # ▼▼▼ NOVA LÓGICA: BUSCAR A FRAÇÃO MÍNIMA ▼▼▼   
+        logging.info("Buscando dados de fração mínima para os produtos selecionados...")
+        frac_minima_df = db_handler.get_product_frac_minima(selected_products)
+        frac_minima_map = {}
+        if not frac_minima_df.empty:
+            # Converte para um dicionário: {'codigo': frac_minima}
+            frac_minima_map = dict(zip(
+                frac_minima_df['codigo_produto'].astype(str).str.strip(),
+                frac_minima_df['frac_minima'].astype(float)
+            ))
+            
         logging.info("--- FASE 1 CONCLUÍDA: Todos os dados foram coletados. ---")
         logging.info("A automação da interface começará em 3 segundos...")
         time.sleep(3)
@@ -324,7 +335,7 @@ def run(db_handler, selectors, config):
         else:
             logging.info("   -> Nat_DatEmisPed != 1. Pressionando ENTER 2x.")
             dav_window.type_keys('{ENTER 1}')
-
+        
         # 8. Selecionar cliente
         logging.info("Passo 8: Inserindo Cliente pré-selecionado...")
         dav_window.type_keys('^a{DELETE}')
@@ -337,7 +348,7 @@ def run(db_handler, selectors, config):
         _handle_optional_dialog(selectors['warning_dialog'], "{ENTER}") 
 
         # 8.2. Advertencia Inscrição Estadual do Contribuinte NÃO está Habilitada 
-        _handle_optional_dialog(selectors['notification_dialog'], "{ENTER}")  
+        _handle_optional_dialog(selectors['atention_dialog'], "{ENTER}")  
 
 
         # 8.5 Verifica se o dialogo de endereços irá aparecer
@@ -465,22 +476,38 @@ def run(db_handler, selectors, config):
                 time.sleep(0.2)
                 dav_window.type_keys('{ENTER}')
 
-            # Define e lança a quantidade de cada item
+            # 1. Inicializar as variáveis com valores padrão DENTRO do loop
+            random_quantity = 1.0
+            frac_minima = frac_minima_map.get(product_code, 0.0)
+
+            # 2. Obter o estoque disponível
             available_stock = int(float(stock_map.get(product_code, 1)))
+            
             if available_stock < 1:
                 available_stock = 1
-                logging.warning(f"Estoque para o produto {product_code} é zero ou negativo. Usando quantidade 1.")
             
-            if available_stock >= 20 :    
-                random_quantity = random.randint(1, 20)
-            else :
-                random_quantity = random.randint(1, available_stock)
-                
-            logging.info(f"Estoque disponível: {available_stock}. Quantidade sorteada: {random_quantity}")
+            # 3. Lógica condicional para calcular a quantidade
+            if frac_minima > 0:
+                max_multiples = int(available_stock // frac_minima)
+                if max_multiples > 0:
+                    chosen_multiple = random.randint(1, max_multiples)
+                    random_quantity = chosen_multiple * frac_minima
+                else:
+                    random_quantity = frac_minima
+            else:
+                # Lógica antiga para produtos sem fração mínima
+                if available_stock >= 20:
+                    random_quantity = random.randint(1, 20)
+                else:
+                    random_quantity = random.randint(1, available_stock)
+            
+            # 4. Log e lançamento (agora seguro)
+            logging.info(f"Estoque: {available_stock}. Fração Mínima: {frac_minima}. Quantidade final lançada: {random_quantity}")
             
             dav_window.set_focus()
-            dav_window.type_keys(str(random_quantity))
-            time.sleep(0.2)  
+            quantity_str = str(random_quantity).replace('.', ',')
+            dav_window.type_keys(quantity_str)
+            time.sleep(0.2)
   
             # Verifica se os campos de desconto e acréscimo estarão disponíveis 
             pa2_infacreped = db_handler.check_field_value(

@@ -259,7 +259,8 @@ GROUP BY pfi_procodigo,
          unp_unidade,
          unp_quantidade,
          pfi_estoque
-ORDER BY codigo_produto,
+ORDER BY nome_produto,
+         codigo_produto,
          pfi_filcodigo,
          lcf_intext,
          lcf_permiteven;   
@@ -281,6 +282,24 @@ ORDER BY codigo_produto,
         WHERE up.unp_ativo = 1 AND p.pro_ativo = 1 AND p.pro_codigo IN ({format_strings})
         GROUP BY p.pro_codigo, p.pro_desc
         ORDER BY p.pro_codigo;
+        """
+        return self.execute_query(query, tuple(product_codes))
+    
+    def get_product_frac_minima(self, product_codes):
+        """
+        Busca o valor do campo Unp_FracMinima para uma lista de códigos de produto.
+        Foca na unidade de estoque padrão (unp_padestoque = 1).
+        """
+        if not product_codes:
+            return pd.DataFrame()
+        
+        format_strings = ','.join(['%s'] * len(product_codes))
+        query = f"""
+        SELECT
+            unp_procodigo AS codigo_produto,
+            unp_fracminima AS frac_minima
+        FROM unidadepro
+        WHERE unp_padestoque = 1 AND unp_procodigo IN ({format_strings});
         """
         return self.execute_query(query, tuple(product_codes))
     
