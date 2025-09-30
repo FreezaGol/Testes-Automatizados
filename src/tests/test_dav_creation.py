@@ -344,10 +344,10 @@ def run(db_handler, selectors, config):
         dav_window.type_keys('{ENTER}')
         #time.sleep(1)  
             
-        # 8.1. Advertencia Inscrição Estadual do Contribuinte NÃO está Habilitada 
+        # 8.1. Verifica se apareceu algum alerta
         _handle_optional_dialog(selectors['warning_dialog'], "{ENTER}") 
 
-        # 8.2. Advertencia Inscrição Estadual do Contribuinte NÃO está Habilitada 
+        # 8.2. Verifica se apareceu algum alerta 
         _handle_optional_dialog(selectors['atention_dialog'], "{ENTER}")  
 
 
@@ -377,7 +377,7 @@ def run(db_handler, selectors, config):
             logging.info("   -> CfgVendedor = 3. Inserindo Vendedor pré-selecionado...")
             dav_window.type_keys('^a{DELETE}')
             dav_window.type_keys(cod_vendedor)
-            dav_window.type_keys('{ENTER 2}')
+            dav_window.type_keys('{ENTER}')
             logging.info(f"   -> Vendedor '{cod_vendedor}' inserido.")
         else:
             dav_window.type_keys('{ENTER}')
@@ -401,23 +401,42 @@ def run(db_handler, selectors, config):
 
         # 12. Selecionar forma de pagamento
         logging.info("Passo 12: Inserindo Forma de Pagamento pré-selecionada...")
+        time.sleep(0.5)
         dav_window.type_keys('{ENTER}')
+        time.sleep(0.5)
         dav_window.type_keys('^a{DELETE}')
+        time.sleep(0.5)
         dav_window.type_keys(selected_forma_pg_code)
+        time.sleep(0.5)
+        dav_window.type_keys('{ENTER}')  
+        time.sleep(0.5)
+        #12.1. Verifica se apareceu DIALOG DE ATENÇÃO
+        _handle_optional_dialog(selectors['atention'], "{ENTER 2}")
+        
         logging.info(f"   -> Forma de pagamento '{selected_forma_pg_code}' inserida.")
         
         # 13. Pressionar ENTER
-        logging.info("Passo 13: Pressionando ENTER.")
-        dav_window.type_keys('{ENTER}')
+        #logging.info("Passo 13: Pressionando ENTER.")
+        #dav_window.type_keys('{ENTER}')
+        
+
 
         # 14. Selecionar condição de pagamento
         logging.info("Passo 14: Inserindo Condição de Pagamento pré-selecionada...")
         dav_window.type_keys('^a{DELETE}')
         dav_window.type_keys(cod_condicao)
+        
+        #14.1. Verifica se apareceu algum alerta
+        _handle_optional_dialog(selectors['warning_dialog'], "{ENTER}") 
+        
+        #14.2. Verifica se apareceu algum alerta
+        _handle_optional_dialog(selectors['atention_dialog'], "{ENTER}")
+        
         logging.info(f"   -> Condição de pagamento '{cod_condicao}' inserida.")
 
         # 15. Finaliza etapa de lançamento de condições
         logging.info("Passo 15: Pressionando ENTER 5x para lançar os itens.")
+        time.sleep(1)
         dav_window.type_keys('{ENTER 5}')
         logging.info("Processo de preenchimento inicial do DAV finalizado com sucesso!")
         time.sleep(0.5)
@@ -449,8 +468,13 @@ def run(db_handler, selectors, config):
                 field='pa2_vultpreco', 
                 filial_code=selected_filial_code
             )
-
-            if pa2_vultpreco == 1:
+            nat_vultpreco = db_handler.check_field_value(
+            'natoper',
+            'nat_vultpreco',
+            'Nat_Codigo',
+            cod_natureza   
+            )
+            if pa2_vultpreco == 1 or nat_vultpreco == 1 :
                 #dav_window.type_keys('{ENTER}')
                 _handle_optional_dialog(selectors['last_price_pratice'],"{ENTER}")
 
@@ -526,6 +550,7 @@ def run(db_handler, selectors, config):
                 dav_window.set_focus()
                 time.sleep(0.5)
                 dav_window.type_keys("{ENTER}")
+                # Verificação autorização estoque
                 logging.info("Verificando se a janela de autorização apareceu...")
                 # 1. Faz a verificação rápida com 'win32'
                 if _check_for_authorization_win32(main_window, selectors):
@@ -533,6 +558,12 @@ def run(db_handler, selectors, config):
                     _handle_authorization_dialog(selectors) 
                 time.sleep(0.5)
                 dav_window.type_keys("{ENTER 5}")
+                # Verificação autorização preço
+                logging.info("Verificando se a janela de autorização apareceu...")
+                # 1. Faz a verificação rápida com 'win32'
+                if _check_for_authorization_win32(main_window, selectors):
+                    # 2. Só se a verificação rápida for positiva, chama a função 'uia' para interagir
+                    _handle_authorization_dialog(selectors) 
                 
 
                 #Se exister o campo tipo de entrega que aparece quando o pa4_tipoentit = 1

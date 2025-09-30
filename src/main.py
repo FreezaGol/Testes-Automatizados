@@ -9,14 +9,14 @@ from logger_config import setup_logger
 from db_handler import DBHandler
 
 # Módulos de Teste
-from tests import test_dav_creation
+from tests import test_dav_creation_new
 from tests import test_load_assembly
 
 # Mapeamento dos testes disponíveis
 AVAILABLE_TESTS = {
     "1": {
         "name": "Criação de Documento Auxiliar de Venda (DAV)",
-        "function": test_dav_creation.run
+        "function": test_dav_creation_new.run
     },
     "2": {
         "name": "Montagem de carga",

@@ -70,7 +70,7 @@ class DBHandler:
 
     def get_clientes(self):
         query = """
-        SELECT p.PES_CODIGO AS codigo_cliente, p.pes_razao AS nome_cliente
+        SELECT p.PES_CODIGO AS codigo_cliente, p.pes_razao AS nome_cliente, c.cli_limitecre AS Credito
         FROM cliente c JOIN pessoa p ON c.CLI_PESCODIGO = p.PES_CODIGO
         WHERE c.cli_limitecre > 0 AND p.PES_ATIVO = 1 AND c.cli_bloqfin = 0
         AND c.CLI_SITUAC1 = '' AND c.CLI_SITUAC2 = '' AND c.CLI_SITUAC3 = '' AND c.CLI_SITUAC4 = ''
@@ -89,18 +89,36 @@ class DBHandler:
 
     def get_formas_pagamento(self, cliente_codigo):
         query = """
-        SELECT DISTINCT fp.FPG_CODIGO AS codigo_forma, fp.FPG_DESC AS descricao
-        FROM pessoa p
-        JOIN (
-            SELECT CLI_PESCODIGO, CLI_FPGCODIGO FROM cliente
-            UNION
-            SELECT FPE_PESCODIGO, FPE_FPGCODIGO FROM formapgpessoa
-        ) AS formas_liberadas ON p.PES_CODIGO = formas_liberadas.CLI_PESCODIGO
-        JOIN formapagto fp ON formas_liberadas.CLI_FPGCODIGO = fp.FPG_CODIGO
-        WHERE p.PES_ATIVO = 1 AND fp.FPG_ATIVO = 1 AND p.PES_CODIGO = %s
-        ORDER BY fp.FPG_DESC;
+        -- Parte 1: Busca as formas de pagamento específicas SE o cliente tiver alguma restrição cadastrada
+        SELECT DISTINCT
+            fp.FPG_CODIGO AS codigo_forma,
+            fp.FPG_DESC AS descricao
+        FROM
+            formapgpessoa fpe
+        JOIN
+            formapagto fp ON fpe.FPE_FPGCODIGO = fp.FPG_CODIGO
+        WHERE
+            fpe.FPE_PESCODIGO = %s
+        AND fp.FPG_ATIVO = 1
+        AND fp.fpg_habvenda = 1
+        UNION ALL
+        SELECT
+            fp.FPG_CODIGO AS codigo_forma,
+            fp.FPG_DESC AS descricao
+        FROM
+            formapagto fp
+        WHERE
+            fp.FPG_ATIVO = 1
+            AND fp.fpg_habvenda = 1
+            AND NOT EXISTS (
+                SELECT 1
+                FROM formapgpessoa fpe_check
+                WHERE fpe_check.FPE_PESCODIGO = %s
+            )
+        ORDER BY
+            descricao;
         """
-        return self.execute_query(query, (cliente_codigo,))
+        return self.execute_query(query, (cliente_codigo,cliente_codigo))
 
     def get_all_formas_pagamento(self):
         query = """
@@ -111,23 +129,47 @@ class DBHandler:
         
     def get_condicoes_pagamento(self, cliente_codigo, forma_pagamento_codigo):
         query = """
-        SELECT DISTINCT cp.CPG_CODIGO as codigo_condicao, cp.CPG_DESC AS descricao
-        FROM (
-            SELECT CLI_PESCODIGO, CLI_CPGCODIGO FROM cliente
-            UNION
-            SELECT CPE_PESCODIGO, CPE_CPGCODIGO FROM condpgpessoa
-        ) AS condicoes_liberadas
-        JOIN pessoa p ON condicoes_liberadas.CLI_PESCODIGO = p.PES_CODIGO
-        JOIN condpagto cp ON condicoes_liberadas.CLI_CPGCODIGO = cp.CPG_CODIGO
-        WHERE p.PES_ATIVO = 1 AND cp.CPG_ATIVO = 1 AND p.PES_CODIGO = %s
-        AND NOT EXISTS (
-            SELECT 1 FROM condnforma cnf
-            WHERE cnf.cnf_cpgcodigo = condicoes_liberadas.CLI_CPGCODIGO
-            AND cnf.cnf_fpgcodigo = %s
-        )
-        ORDER BY cp.CPG_DESC;
+-- Parte 1: Busca as condições específicas do cliente, se houver
+SELECT
+    cp.CPG_CODIGO AS codigo_condicao,
+    cp.CPG_DESC AS descricao
+FROM
+    condpgpessoa cpe
+JOIN
+    condpagto cp ON cpe.CPE_CPGCODIGO = cp.CPG_CODIGO
+WHERE
+    cpe.CPE_PESCODIGO = %s
+    AND cp.CPG_ATIVO = 1
+    -- Filtro de compatibilidade
+    AND NOT EXISTS (
+        SELECT 1 FROM condnforma cnf
+        WHERE cnf.cnf_cpgcodigo = cp.CPG_CODIGO AND cnf.cnf_fpgcodigo = %s
+    )
+
+UNION ALL
+
+-- Parte 2: Busca todas as condições compatíveis, se o cliente NÃO tiver restrições
+SELECT
+    cp.CPG_CODIGO AS codigo_condicao,
+    cp.CPG_DESC AS descricao
+FROM
+    condpagto cp
+WHERE
+    cp.CPG_ATIVO = 1
+    -- Filtro de compatibilidade
+    AND NOT EXISTS (
+        SELECT 1 FROM condnforma cnf
+        WHERE cnf.cnf_cpgcodigo = cp.CPG_CODIGO AND cnf.cnf_fpgcodigo = %s
+    )
+    -- Garante que esta parte só rode se o cliente não tiver restrições
+    AND NOT EXISTS (
+        SELECT 1 FROM condpgpessoa cpe_check
+        WHERE cpe_check.CPE_PESCODIGO = %s
+    )
+ORDER BY
+    descricao;
         """
-        return self.execute_query(query, (cliente_codigo, forma_pagamento_codigo))
+        return self.execute_query(query, (cliente_codigo, forma_pagamento_codigo,forma_pagamento_codigo,cliente_codigo))
 
     def get_all_condicoes_pagamento(self, forma_pagamento_codigo):
         query = """
@@ -228,8 +270,7 @@ LEFT JOIN (localfilial
            INNER JOIN produtolote ON lcf_lcecodigo = ple_lcecodigo
            AND lcf_filcodigo = ple_filcodigo) ON pfi_filcodigo = lcf_filcodigo
 AND pfi_procodigo = ple_procodigo
-WHERE Pro_Codigo = 3
-  and ple_estfisico >= 1
+WHERE ple_estfisico >= 1
   and pfi_estoque >= 1
   AND pro_codigo = pfi_procodigo
   AND pfi_filcodigo = par_filcodigo

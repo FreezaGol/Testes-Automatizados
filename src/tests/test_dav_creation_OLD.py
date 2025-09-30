@@ -341,7 +341,7 @@ def run(db_handler, selectors, config):
 
             # Pressiona ENTER de acordo com o número de unidades
             unit_count = unit_counts_map.get(product_code, 1)
-            logging.info(f"     Produto tem {unit_count} unidade(s) mapeada(s).")
+            logging.info(f"Produto tem {unit_count} unidade(s) mapeada(s).")
             if unit_count > 1:
                 dav_window.type_keys('{ENTER 2}')
             else:
@@ -353,7 +353,7 @@ def run(db_handler, selectors, config):
             
             if available_stock < 1:
                 available_stock = 1
-                logging.warning(f"     Estoque para o produto {product_code} é zero ou negativo. Usando quantidade 1.")
+                logging.warning(f"Estoque para o produto {product_code} é zero ou negativo. Usando quantidade 1.")
 
             random_quantity = random.randint(1, available_stock)
             logging.info(f"     Estoque disponível: {available_stock}. Quantidade sorteada: {random_quantity}")
@@ -362,7 +362,7 @@ def run(db_handler, selectors, config):
             dav_window.type_keys(str(random_quantity))
 
             # Pressiona ENTER 3x para gravar o item no pedido
-            logging.info("     Pressionando ENTER 3x para gravar o item.")
+            logging.info("Pressionando ENTER 3x para gravar o item.")
             dav_window.type_keys('{ENTER 3}')
             #time.sleep(1)
 

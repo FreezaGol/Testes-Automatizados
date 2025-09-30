@@ -1,65 +1,35 @@
 {
     "main_window": {
         "title_re": "Space Guardian.*",
-        "class_name": "2.52_17P9c000000"
-        },
-    "main_panel": {
-        "title_re": "Space Guardian.*",
-        "control_type": "Pane"
+        "class_name": "2.53_19c000000"
     },
-    "login_window": {
-        "title": "Acesso ao Sistema"
-    },
-    "user_field": {
-        "title": "TxtUsr_Login"
-    },
-    "password_field": {
-        "title": "TxtUsr_Senha"
-    },
-    "dav_inclusion_window": {
+    "dav_consult_window": {
         "title": "Consulta de Pedidos - Documento Auxiliar de vendas"
     },
-    "confirmation_dialog": {
-        "title": "Confirmação",
-        "class_name": "#32770"
+    "dav_inclusion_window": {
+        "title": "Documento Auxiliar de Venda - Inclusão "
     },
-    "last_price_pratice":{
-        "title": "Último preço praticado",
-        "class_name": "#32770"
-    },
-    "adress_dialog":{
-        "title": "Endereços"
-    },
-    "vendedor_selection_dialog": {
-        "title": "Selecione o Vendedor"
-    },
-    "logistics_window": {
-        "title": "Cargas Do Sistema"
-    },
-    "load_assembly_window": {
-        "title": "Montagem de Carga",
-        "class_name": "TMontagemCargaForm"
-    },
-    "warning_dialog" : {
-        "title": "Advertência",
-        "class_name": "#32770"
-    },
-    "atention_dialog" : {
-        "title": "Atenção",
-        "class_name": "#32770"
-    },
-    "authorization_dialog" : {
-        "title_re": "Solicitação de Autorização.*" 
-    },
-    "authorization_authorize_button": {
-        "title": "Autorizar >>",
-        "control_type": "Button"
-    },
-    "authorization_confirm_button": {
-        "title": "Confirma Autorização",
-        "control_type": "Button"
-    },
-    "notification_dialog" : {
-        "title": "Aviso"
-    }
+    "confirmation_dialog": { "title": "Confirmação", "class_name": "#32770" },
+    "warning_dialog": { "title": "Advertência", "class_name": "#32770" },
+    "atention_dialog": { "title": "Atenção", "class_name": "#32770" },
+    "atention_dialog2": { "title": "Atenção !", "class_name": "#32770" },
+    "adress_dialog": { "title": "Endereços" },
+    "last_price_pratice": { "title": "Último preço praticado", "class_name": "#32770" },
+    "authorization_dialog": { "title_re": "Solicitação de Autorização.*", "control_type": "Window" },
+    "authorization_authorize_button": { "title": "<< Autorizar", "control_type": "Button" },
+    "authorization_confirm_button": { "title": "Confirma Autorização", "control_type": "Button" },
+
+    "dav_get_natop_group": { "title": "GetNatop", "control_type": "Group" },
+    "dav_get_cliente_group": { "title": "GetCliente", "control_type": "Group" },
+    "dav_get_vendedor_group": { "title": "GetVendedor", "control_type": "Group" },
+    "dav_get_forma_pg_group": { "title": "GetFormaPag", "control_type": "Group" },
+    "dav_get_cond_pg_group": { "title": "GetCondPag", "control_type": "Group" },
+
+    "dav_lanca_itens_button": { "title": "Lança Itens", "control_type": "Button" },
+    "dav_itens_tab": { "title": "T - Itens", "control_type": "TabItem" },
+
+    "dav_produto_field": { "title": "Getproduto1", "control_type": "Edit" },
+    "dav_quantidade_field": { "title": "Txt_IpvQuantidade", "control_type": "Edit" },
+    "dav_gravar_item_button": { "title": "Gravar", "control_type": "Button" },
+    "vendedor_selection_dialog": {"title": "Selecione o Vendedor","class_name": "#32770" }
 }
